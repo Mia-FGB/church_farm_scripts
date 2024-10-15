@@ -9,6 +9,7 @@ library(scales)
 library(patchwork)
 
 #Read in the dataframe, this was generated in Scripts/Initial_CF_2023_analysis.ipynb from the MARTi output
+#This data has not been filtered
 data <- read.csv("Regular_Collections_2023/just_pathogen_data.csv", header = TRUE)
 
 #sort the dates - Nice.Date is the Date collected but easier to read in
@@ -74,12 +75,10 @@ p <- ggplot(data_min_max, aes(x = Nice.Date, y = mean)) +
   theme(
     panel.grid.minor = element_blank(), 
     panel.grid.major = element_blank(),
-    axis.text.x = element_text(angle = 90, hjust = 1)) +
   theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
-  xlab("Date collected (pnth)") + 
+  xlab("Date collected") + 
   ylab("Hits per Million (Ln)") +
   scale_x_date(breaks = break.vec, date_labels = "%b", limits = range(break.vec))
 
 # Save as SVG
 ggsave(filename = "Regular_Collections_2023/graphs/sep_pathogens_line_error.svg", plot = p, width = 10, height = 9)
-
