@@ -3,6 +3,7 @@ library(ggplot2)
 library(readr)
 library(stringr)
 library(lubridate)
+library(RColorBrewer)
 
 #Reading in the data ---------
 z_tritici <- read_tsv("Regular_Collections_2023/genome_coverage/z_tritici_coverage.tsv")
@@ -13,9 +14,9 @@ metadata <- read_csv("CF_2023_metadata.csv")
 
 
 #Add reference genome length --------
-z_tritici$ref_length_bp <- 3968625
+z_tritici$ref_length_bp <-39686251
 p_nodorum$ref_length_bp <-37213987
-p_avenae$ref_length_bp <- 36888127
+p_avenae$ref_length_bp  <-36888127
 
 #Merge the datasets -------
 combined_data <- bind_rows(z_tritici, p_nodorum, p_avenae)
@@ -57,7 +58,7 @@ merged_data_avg$sqrt_min_coverage <- sqrt(merged_data_avg$min_coverage + 0.001)
 merged_data_avg$sqrt_max_coverage <- sqrt(merged_data_avg$max_coverage + 0.001)
 
 #Setting x-axis start and end
-break.vec <- c(as.Date("2022-10-01"), seq(from=as.Date("2022-10-01"), to=as.Date("2023-08-31"),by="1 month")) 
+break.vec <- c(as.Date("2022-10-01"), seq(from=as.Date("2022-10-01"), to=as.Date("2023-08-31"),by="1 week")) 
 
 #Bar plots ----------
 
@@ -69,21 +70,26 @@ gc <-  ggplot(
   geom_errorbar(
     aes(ymin = min_coverage, ymax = max_coverage),
     width = 4, size = 0.4, colour = "grey39", position = position_dodge()) +
-  theme(axis.title.x = element_blank()) +   # Remove x axis title
-  scale_fill_viridis_d(option = "D") +  # Use the discrete version of viridis
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_fill_manual(values = brewer.pal(n = 3, name = "Set3")) +
+  theme_bw() + 
+  theme(
+    panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+    panel.border = element_blank(), 
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5),
+    axis.title.x = element_blank(), #remove x-axis title
+    axis.line = element_line(size = 0.7)) + #thicker axis
+  scale_x_date(breaks = break.vec, date_labels = "%d-%b") +
   ylab("Average Genome coverage %") +
   xlab("Date Collected") +
-  ggtitle("Genome coverage over time") +
-  theme_bw() + 
-  theme(panel.grid.minor = element_blank()) +
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=0.5)) +
-  scale_x_date(breaks = break.vec, date_labels = "%b") 
+  ggtitle("Genome coverage over time") 
 
 # Save as SVG
 ggsave(filename = "Regular_Collections_2023/graphs/genome_coverage.svg", plot = gc, width = 10, height = 6)
 
 
 #Genome coverage sqrt transformed plot!
+#I don't think this provides any better info than the standard plot
 tf <- ggplot(
   merged_data_avg, aes(x = `Date collected`, y = sqrt_coverage, fill = `Reference Genome`)) + 
   #facet_wrap(~ `Reference Genome`, ncol = 1) +  
@@ -91,15 +97,19 @@ tf <- ggplot(
   geom_errorbar(
     aes(ymin = sqrt_min_coverage, ymax = sqrt_max_coverage),
     width = 4, size = 0.4, colour = "grey39", position = position_dodge()) +
-  theme(axis.title.x = element_blank()) +   # Remove x axis title
-  scale_fill_viridis_d(option = "D") +  # Use the discrete version of viridis
   ylab("Average Genome coverage % (sqrt transformed)") +
   xlab("Date Collected") +
   ggtitle("Genome coverage over time") +
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_fill_manual(values = brewer.pal(n = 3, name = "Set3")) +
   theme_bw() + 
-  theme(panel.grid.minor = element_blank()) +
-  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=0.5)) +
-  scale_x_date(breaks = break.vec, date_labels = "%b") 
+  theme(
+    panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+    panel.border = element_blank(), 
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5),
+    axis.title.x = element_blank(), #remove x-axis title
+    axis.line = element_line(size = 0.7)) + #thicker axis
+  scale_x_date(breaks = break.vec, date_labels = "%d-%b")
 
 # Save as SVG
 ggsave(filename = "Regular_Collections_2023/graphs/genome_coverage_sqrt.svg", plot = tf, width = 10, height = 6)
@@ -112,15 +122,19 @@ mr <-  ggplot(
    geom_errorbar(
      aes(ymin = min_mapped_reads, ymax = max_mapped_reads),
      width = 4, size = 0.4, colour = "grey39", position = position_dodge()) +
-   theme(axis.title.x = element_blank()) +   # Remove x axis title
-   scale_fill_viridis_d(option = "D") +  # Use the discrete version of viridis
    ylab("Average Number of Mapped Reads") +
    xlab("Date Collected") +
    ggtitle("Number of Mapped Reads over time") +
-   theme_bw() + 
-   theme(panel.grid.minor = element_blank()) +
-   theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=0.5)) +
-   scale_x_date(breaks = break.vec, date_labels = "%b") 
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_fill_manual(values = brewer.pal(n = 3, name = "Set3")) +
+  theme_bw() + 
+  theme(
+    panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+    panel.border = element_blank(), 
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5),
+    axis.title.x = element_blank(), #remove x-axis title
+    axis.line = element_line(size = 0.7)) + #thicker axis
+  scale_x_date(breaks = break.vec, date_labels = "%d-%b")
 
  # Save as SVG
  ggsave(filename = "Regular_Collections_2023/graphs/mapped_reads.svg", plot = mr, width = 10, height = 6)

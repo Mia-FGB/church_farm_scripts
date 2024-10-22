@@ -35,7 +35,7 @@ data_min_max <- data %>%
   summarise(mean = mean(ln_HPM), min = min(ln_HPM), max = max(ln_HPM))
 
 #Setting x-axis start and end
-break.vec <- c(as.Date("2022-10-01"), seq(from=as.Date("2022-10-01"), to=as.Date("2023-08-31"),by="1 month")) 
+break.vec <- c(as.Date("2022-10-01"), seq(from=as.Date("2022-10-01"), to=as.Date("2023-08-31"),by="2 weeks")) 
 
 
 # Function to create plots for a specific genus and save them to a PDF - need to imrpove the aesthetics
@@ -64,21 +64,30 @@ break.vec <- c(as.Date("2022-10-01"), seq(from=as.Date("2022-10-01"), to=as.Date
 #   ggsave(filename, plot = plot, width = 24, height = 5, units = "in")
 # }
 
+custom_colors <- c(
+  "Zymoseptoria" = "#8DD3C7", 
+  "Fusarium" = "#BC80BD", 
+  "Pyrenophora" = "#BEBADA", 
+  "Parastagonospora" = "#FB8072", 
+  "Blumeria" = "#80B1D3", 
+  "Phaeosphaeria" = "#FDB462",
+  "Puccinia"= "#B3DE69",
+  "Ustilago" = "#FCCDE5"
+)
 
 #Facet plots for all genera
-p <- ggplot(data_min_max, aes(x = Nice.Date, y = mean)) + 
+p <- ggplot(data_min_max, aes(x = Nice.Date, y = mean, colour = Name)) + 
   facet_wrap(~ Name, ncol = 2) +  
-  geom_line(size = 0.6, color = "#014d4e") + 
-  geom_point(size = 1, color = "#014d4e") +
+  geom_line(size = 1) + 
+  geom_point(size = 1, colour = "black") +
   geom_errorbar(aes(ymin = min, ymax = max), width = 10, size = 0.6, colour = "grey39") +
   theme_bw() + 
-  theme(
-    panel.grid.minor = element_blank(), 
-    panel.grid.major = element_blank(),
   theme(panel.grid.minor = element_blank(), panel.grid.major = element_blank()) +
   xlab("Date collected") + 
   ylab("Hits per Million (Ln)") +
-  scale_x_date(breaks = break.vec, date_labels = "%b", limits = range(break.vec))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=0.5)) +
+  scale_x_date(breaks = break.vec, date_labels = "%d-%b", limits = range(break.vec)) +
+  scale_color_manual(values = custom_colors)  # Use your custom color palette
 
 # Save as SVG
 ggsave(filename = "Regular_Collections_2023/graphs/sep_pathogens_line_error.svg", plot = p, width = 10, height = 9)
