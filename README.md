@@ -5,3 +5,6 @@ A script that reads in Excel files containing disease score data for 2023 & 2024
 
 [text](metadata_exploration.ipynb)
 Script to look at the metadata from the samples to better understand different aspects of collections.
+
+[text](Weather_plots.ipynb)
+Script that reads in 10 minute, hourly and daily weather collections to be plotted with a specific start and end range.
