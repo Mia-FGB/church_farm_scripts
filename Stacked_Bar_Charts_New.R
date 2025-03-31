@@ -138,7 +138,10 @@ samp_genus <- phylo_object %>%
   transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance - compared to pass reads
   psmelt() %>%                                         # Melt to long format
   filter(Abundance > 0.02) %>%                         # Filter out low abundance taxa diff threshold to before
-  arrange(genus)                                      
+  arrange(genus)   
+
+# Get all sample IDs and DateTime_UTC from meta to add back in 
+meta_data <- meta %>% select(Nice_ID, DateTime_UTC, Year)
 
 #See which phyla there are & which are fungal
 unique(samp_genus$phylum)
@@ -146,6 +149,16 @@ unique(samp_genus$phylum)
 fungal_phyla <- c( "Basidiomycota", "Ascomycota", "Oomycota")
 fungi_data <- samp_genus %>% 
   filter(phylum %in% fungal_phyla)
+
+# Ensure all sample IDs are included, even if they have no fungal data
+# Complete missing samples keeping DateTime_UTC
+fungi_data <- fungi_data %>%
+  complete(Nice_ID = all_samples, fill = list(Abundance = 0)) %>%  # Keeps genus values
+  mutate(genus = ifelse(is.na(genus), "Higher_Taxa", genus)) %>%  # Fill only missing genus
+  left_join(meta_data, by = "Nice_ID") %>%   # Add back DateTime_UTC
+  mutate(DateTime_UTC = coalesce(DateTime_UTC.x, DateTime_UTC.y),
+         Year = coalesce(Year.x, Year.y)) %>%  # Fill NA values
+  select(-DateTime_UTC.x, -DateTime_UTC.y, -Year.x, -Year.y)  # Remove duplicate column
 
 #Get unique genera in this dataset 
 uniq_genera <- unique(fungi_data$genus)
@@ -204,4 +217,6 @@ plot_fungi_by_year(fungi_data, 2024,
 plot_fungi_by_year(fungi_data, c(2022, 2023),
                     "/Users/berelsom/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes/Air_Samples/Church_farm/Graphs/",
                     "2022 - 2023")
+
+filtered_data <- fungi_data %>% filter(Year %in% 2023)
 
