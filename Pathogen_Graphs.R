@@ -7,9 +7,15 @@ library(tidyverse)
 library(lubridate) # for date time
 library(reshape2)  #to melt data
 library(RColorBrewer)
+library(patchwork)
 
 # Set plotting theme
-theme_set(theme_bw())
+custom_theme <- theme_minimal(base_size = 12) +
+  theme(
+    axis.line = element_line(color = "black", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank()
+  )
 
 #Reading in & Procesisng data ----------
 
@@ -19,7 +25,7 @@ data <-  read.delim("~/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes
 
 
 pathogens <- c("Puccinia", "Blumeria", "Fusarium", "Zymoseptoria", "Ustilago", "Magnaporthe",
-               "Claviceps", "Pyrenophora", "Parastagonospora", "Phaeosphaeria")
+               "Claviceps", "Pyrenophora", "Phaeosphaeria", "Parastagonospora", )
 
 pathogen_data <- data %>% 
   filter(`NCBI Rank` == 'genus') %>% 
@@ -95,8 +101,10 @@ plot_pathogen_bar <- function(years, name){
          y = "Average HPM")
   
   filename <- paste0("~/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes/Air_Samples/Church_farm/Graphs/pathogen_graphs/", 
-                     name, "_", paste(years, collapse = "_"), ".svg")
+                     name, "_", paste(years, collapse = "_"), ".pdf")
   ggsave(filename, plot = pathogen_plot, device = "svg", width = 10, height = 6)
+  
+  return(pathogen_plot)
 }
 
 #Example for one plot:
@@ -115,6 +123,120 @@ for (name in pathogens) {
   plot_pathogen_bar(years = c(2022, 2023), 
                     name = name)
 }
+
+# Single Year panel plots  ---------
+plot_pathogen_panel <- function(data, years, panel_label) {
+  filtered_data <- data %>%
+    filter(Year %in% years, Name %in% pathogens) %>%
+    group_by(Name, Sample, DateTime_UTC) %>%
+    summarise(
+      Avg_HPM = mean(HPM),
+      SD_HPM = sd(HPM),
+      SE_HPM = SD_HPM / sqrt(n()),
+      .groups = "drop"
+    ) %>%
+    arrange(DateTime_UTC)
+  
+  # Ensure samples are chronologically ordered
+  filtered_data$Sample <- factor(filtered_data$Sample, levels = unique(filtered_data$Sample))
+  
+  p <- ggplot(filtered_data, aes(x = Sample, y = Avg_HPM)) +
+    geom_bar(stat = "identity", fill = "#BD98A2") +
+    geom_errorbar(aes(ymin = Avg_HPM - SE_HPM, ymax = Avg_HPM + SE_HPM), width = 0.2) +
+    facet_wrap(~ Name, scales = "free_y", ncol = 2) +  # Adjust ncol as needed
+    custom_theme +
+    theme(
+      axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+      strip.text = element_text(size = 10, face = "bold"),
+      panel.grid = element_blank()
+    ) +
+    labs(title = paste("Pathogen HPM Panel -", panel_label),
+         x = "Date",
+         y = "Average HPM")
+
+  ggsave(
+    paste0("~/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes/Air_Samples/Church_farm/Graphs/pathogen_graphs/Panel_", panel_label, ".pdf"),
+    plot = p, width = 12, height = 10
+  )
+  
+  return(p)
+}
+
+panel_2024 <- plot_pathogen_panel(pathogen_meta, years = 2024, panel_label = "2024")
+panel_2022_2023 <- plot_pathogen_panel(pathogen_meta, years = c(2022, 2023), panel_label = "2022_2023")
+
+# Panel Plot ------------
+
+## Create a function to return a dual-year plot per pathogen
+plot_pathogen_patch <- function(name, show_strip = FALSE) {
+  filtered_data <- pathogen_meta %>%
+    filter(Name == name, Year %in% c(2022, 2023, 2024)) %>%
+    mutate(Year_Group = ifelse(Year == 2024, "2024", "2022–2023"))
+  
+  if (sum(filtered_data$HPM > 0, na.rm = TRUE) == 0) {
+    message("Skipping: no data for ", name)
+    return(NULL)
+  }
+  
+  summary_data <- filtered_data %>%
+    group_by(Year_Group, Sample, DateTime_UTC) %>%
+    summarise(
+      Avg_HPM = mean(HPM),
+      SD_HPM = sd(HPM),
+      SE_HPM = SD_HPM / sqrt(n()),
+      .groups = "drop"
+    ) %>%
+    arrange(Year_Group, DateTime_UTC)
+  
+  summary_data$Sample <- factor(summary_data$Sample, levels = unique(summary_data$Sample))
+  
+  base_plot <- ggplot(summary_data, aes(x = Sample, y = Avg_HPM)) +
+    geom_bar(stat = "identity", fill = "#B2909F") +
+    geom_errorbar(aes(ymin = Avg_HPM - SE_HPM, ymax = Avg_HPM + SE_HPM), width = 0.2) +
+    facet_wrap(~ Year_Group, scales = "free_x", ncol = 2) +
+    labs(title = name, x = "Date Collected", y = "Average HPM") +
+    custom_theme +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 6),
+      strip.text = element_text(face = "bold", size = 10),
+      plot.title = element_text(size = 10, face = "bold"),
+      panel.grid = element_blank()
+    )
+  
+  # Optionally hide facet strip
+  if (!show_strip) {
+    base_plot <- base_plot + theme(strip.text = element_blank())
+  }
+  
+  return(base_plot)
+}
+
+#Generate plots for each pathogen
+plot_list <- lapply(seq_along(pathogens), function(i) {
+  name <- pathogens[i]
+  show_strip <- (i == 1)                             # Only top plot shows year strip
+  plot_pathogen_patch(name, show_strip = show_strip)
+})
+
+
+plot_list <- Filter(Negate(is.null), plot_list)
+
+# Strip x-axis text and label from all but the last
+for (i in seq_len(length(plot_list) - 1)) {
+  plot_list[[i]] <- plot_list[[i]] +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.title.x = element_blank()
+    )
+}
+
+# Combine plots
+combined_panel <- wrap_plots(plot_list, ncol = 1)
+
+# Save
+ggsave("../Graphs/pathogen_graphs/combined_pathogen_patchwork.pdf", combined_panel, width = 12, height = length(plot_list) * 2)
+
 
 
 # Multiple years on the same axis --------
