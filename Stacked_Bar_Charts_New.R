@@ -11,6 +11,8 @@ library(dplyr)
 library(RColorBrewer)
 library(tidyr)
 library(forcats)
+library(lubridate)
+library(patchwork)
 
 # Set plotting theme
 theme_set(theme_bw())
@@ -20,14 +22,14 @@ theme_set(theme_bw())
 #OTU table --
 #generated the assigned only read tsv from MARTi output using Scripts/split_marti_taxa.py 
 # Use assigned reads for phyloseq as builds the objevt using lineage data
-otu <- read.delim("all_data_mar25_assigned.tsv", check.names = FALSE) #2023 & 2024 samples
+otu <- read.delim("../all_data_mar25_assigned.tsv", check.names = FALSE) #2023 & 2024 samples
 otu <- otu[,-c(1,3)]          # remove Name & Rank
 rownames(otu) <- otu[,1]      # Making the rownames the NCBI ID
 otu <- otu[,-1]             # Then drop the repeated col 
 
 #Taxa table --
 #generated the lineages using - /Scripts/get_lineage_from_marti.sh from the marti output
-taxa <- read.csv("metadata/all_data_marti_assignments_lca_0.1_all_levels_2025-MAR-31_9-49-19_taxaID_lineage.csv")
+taxa <- read.csv("../metadata/all_data_marti_assignments_lca_0.1_all_levels_2025-MAR-31_9-49-19_taxaID_lineage.csv")
 taxa<- taxa %>% 
   mutate_if(is.character, as.factor)
 #Remove first row (NCBI ID which is empty)
@@ -39,7 +41,7 @@ taxa <- taxa[,-1]
 
 #Metadata --
 #Edited in python to deal with missing dates and BST / GMT timezones 
-meta <- read.delim("metadata/metadata_cleaned.tsv")
+meta <- read.delim("../metadata/metadata_cleaned.tsv")
 #Drop Empty SampleID rows
 meta <- meta %>% filter(Sample_ID != "" & !is.na(Sample_ID))
 rownames(meta) <- meta[,1]       #Make the row names the Sample ID
@@ -85,7 +87,12 @@ phy_colours <- setNames(phy_colours, ordered_phyla)
 # Ensure phylum column is a factor with ordered levels
 samp_phylum$phylum <- factor(samp_phylum$phylum, levels = ordered_phyla)
 
-#Function to plot --
+
+
+
+#Function to plot ----
+
+
 plot_phylum_by_year <- function(data, years, save_path, title) {
   # Filter data by the selected year
   filtered_data <- data %>% filter(Year %in% years)
@@ -104,27 +111,56 @@ plot_phylum_by_year <- function(data, years, save_path, title) {
   # Create the stacked bar plot
   p <- ggplot(filtered_data, aes(x = Nice_ID, y = Abundance, fill = phylum)) +  
     geom_bar(stat = "identity") +
-    scale_fill_manual(values = phy_colours) +
-    theme(axis.title.x = element_blank()) +
+    scale_fill_manual(values = phy_colours, drop = FALSE) + # for combining, legend will have all phyla
     labs(fill = "Phylum") +
     ylab("Relative Abundance (Phyla > 0.01%) \n") +
-    ggtitle(paste("Phylum Composition -", title)) +
+    xlab("Date Collected and Replicate") +
+    # ggtitle(paste("Phylum Composition -", title)) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5))
   
   # Save the plot
   file_name <- paste0(save_path, "Phylum_", title, ".svg")
   ggsave(file_name, p, width = 12, height = 6)
   
-  print(p)  # Display the plot
+  return(p)  # Return the plot
 }
 
-#Run function:
+
+
+## Call phylum function on full data ----
 plot_phylum_by_year(samp_phylum, 2024,
                     "/Users/berelsom/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes/Air_Samples/Church_farm/Graphs/",
                     "2024")
 plot_phylum_by_year(samp_phylum, c(2022, 2023),
                     "/Users/berelsom/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes/Air_Samples/Church_farm/Graphs/",
                     "2022 - 2023")
+
+# Just the data where month was collected in both years ---
+# Create filtered df for months present in both years (Feb - Aug)
+fil_samp_phylum <- samp_phylum %>% 
+  filter(month(DateTime_UTC ) >= 2 & month(DateTime_UTC ) <= 8)
+
+# Ensure Start_Time is in a proper date format (handle NAs if needed)
+fil_samp_phylum$DateTime_UTC <- as.POSIXct(fil_samp_phylum$DateTime_UTC, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+# Ensure phylum column is a factor with ordered levels
+fil_samp_phylum$phylum <- factor(fil_samp_phylum$phylum, levels = ordered_phyla)
+
+
+
+## Call pyhlum function on filtered month data ----
+p2024 <- plot_phylum_by_year(fil_samp_phylum, 2024,
+                    "/Users/berelsom/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes/Air_Samples/Church_farm/Graphs/",
+                    "Filtered_2024")
+
+p2023 <- plot_phylum_by_year(fil_samp_phylum,2023,
+                    "/Users/berelsom/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes/Air_Samples/Church_farm/Graphs/",
+                    "Filtered_2023") + theme(axis.title.x = element_blank())
+
+# Combine them vertically with shared legend
+combined_plot <- p2023 / p2024 + plot_layout(guides = "collect") & theme(legend.position = "right")
+combined_plot
+
+ggsave("../Graphs/Phylum_Combined_2023_2024.pdf", combined_plot, width = 12, height = 10)
 
 
 
