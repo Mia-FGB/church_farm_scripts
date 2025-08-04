@@ -17,15 +17,25 @@ custom_theme <- theme_minimal(base_size = 12) +
     panel.grid.major = element_blank()
   )
 
-#Reading in & Procesisng data ----------
+#Reading in & Processing data ----------
 
 # Read counts ---
 # Using summed data so I can work at Genus level 
 data <-  read.delim("~/Library/CloudStorage/OneDrive-NorwichBioScienceInstitutes/Air_Samples/Church_farm/all_data_mar25_summed.tsv", check.names = FALSE)
 
 
-pathogens <- c("Puccinia", "Blumeria", "Fusarium", "Zymoseptoria", "Ustilago", "Magnaporthe",
-               "Claviceps", "Pyrenophora", "Phaeosphaeria", "Parastagonospora", )
+pathogens <- c(
+  "Blumeria",
+  "Claviceps",
+  "Fusarium",
+  "Magnaporthe",
+  "Parastagonospora",
+  "Phaeosphaeria",
+  "Puccinia",
+  "Pyrenophora",
+  "Ustilago",
+  "Zymoseptoria"
+)
 
 pathogen_data <- data %>% 
   filter(`NCBI Rank` == 'genus') %>% 
@@ -61,8 +71,73 @@ pathogen_meta <- pathogen_meta %>%
   mutate(HPM = ifelse(HPM < 100, 0, HPM)) %>% 
   filter(!Sample %in% c("Positive", "Negative"))
 
+# Thesis plot -----------------
+## Time distributed line panel plot ------------
 
-# Plotting --------
+# Custom colours
+custom_colors <- c(
+  "Zymoseptoria"     = "#42988F", 
+  "Fusarium"         = "#894B89",  
+  "Pyrenophora"      = "#837DA5",  
+  "Parastagonospora" = "#C95A4F",  
+  "Blumeria"         = "#4D6D91",  
+  "Phaeosphaeria"    = "#D98A2B",  
+  "Puccinia"         = "#7DA740",  
+  "Ustilago"         = "#E5AACD"   
+)
+
+# Summarise and group data
+plot_data <- pathogen_meta %>%
+  filter(Name %in% pathogens, Year %in% c(2023, 2024)) %>%
+  group_by(Name, Year, Sample) %>%
+  summarise(
+    Avg_HPM = mean(HPM, na.rm = TRUE),
+    SD_HPM = sd(HPM, na.rm = TRUE),
+    SE_HPM = SD_HPM / sqrt(n()),
+    .groups = "drop"
+  )
+
+# Reorder factor levels so they appear in desired order in the plot
+plot_data$Name <- factor(plot_data$Name, levels = pathogens)
+plot_data$Sample <- factor(plot_data$Sample, levels = unique(plot_data$Sample))
+
+# Convert genus names to plotmath expressions like italic(Blumeria)
+plot_data$Name_lab <- paste0("italic(", plot_data$Name, ")")
+
+# For the x-axis
+plot_data$Date <- as.Date(plot_data$Sample, format = "%d_%m_%y")
+
+# Plot
+faceted_plot <- ggplot(plot_data, aes(x = Date, y = Avg_HPM, colour = Name)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 1, colour = "grey30") +
+  geom_errorbar(aes(ymin = Avg_HPM - SE_HPM, ymax = Avg_HPM + SE_HPM), 
+                width = 0.3, colour = "grey30") +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b\n%y") +
+  facet_grid(rows = vars(Name_lab), cols = vars(Year),
+             scales = "free", switch = "y",
+             labeller = label_parsed) +
+  scale_colour_manual(values = custom_colors) +
+  theme_minimal(base_size = 11) +
+  theme(
+    axis.line = element_line(color = "black", linewidth = 0.3),
+    panel.grid.minor = element_blank(),
+    # axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 6),
+    legend.position = "none"
+  ) +
+  labs(
+    x = "Date Collected",
+    y = "Average Hits Per Million",
+    # title = "Faceted Pathogen HPM by Year Group"
+  )
+
+faceted_plot
+
+# Save
+ggsave("../Graphs/pathogen_graphs/combined_pathogen_line.pdf", faceted_plot, width = 10, height = 10)
+
+
+# Plot per pathogen bar --------
 plot_pathogen_bar <- function(years, name){
   filtered_data <- pathogen_meta %>% filter(Year %in% years, Name == name)
   
@@ -165,7 +240,7 @@ plot_pathogen_panel <- function(data, years, panel_label) {
 panel_2024 <- plot_pathogen_panel(pathogen_meta, years = 2024, panel_label = "2024")
 panel_2022_2023 <- plot_pathogen_panel(pathogen_meta, years = c(2022, 2023), panel_label = "2022_2023")
 
-# Panel Plot ------------
+# Even spaced bar panel plot ------------
 
 ## Create a function to return a dual-year plot per pathogen
 plot_pathogen_patch <- function(name, show_strip = FALSE) {
@@ -198,9 +273,6 @@ plot_pathogen_patch <- function(name, show_strip = FALSE) {
     custom_theme +
     theme(
       axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 6),
-      strip.text = element_text(face = "bold", size = 10),
-      plot.title = element_text(size = 10, face = "bold"),
-      panel.grid = element_blank()
     )
   
   # Optionally hide facet strip
@@ -235,13 +307,11 @@ for (i in seq_len(length(plot_list) - 1)) {
 combined_panel <- wrap_plots(plot_list, ncol = 1)
 
 # Save
-ggsave("../Graphs/pathogen_graphs/combined_pathogen_patchwork.pdf", combined_panel, width = 12, height = length(plot_list) * 2)
-
-
+ggsave("../Graphs/pathogen_graphs/combined_pathogen_bar.pdf", combined_panel, width = 12, height = length(plot_list) * 2)
 
 # Multiple years on the same axis --------
 # Is working but in order for the bars to have a nice width, have Sample on x-axis which is a bit messy
-# Tried using the date-formtatitng approach but it looked worse
+# Tried using the date-formatting approach but it looked worse
 
 pathogen_meta$Date_No_Yr <- format(pathogen_meta$DateTime_UTC, "1900-%m-%d")
 # Convert Date_No_Yr to a proper date format (assuming it's in MM-DD format)
@@ -295,4 +365,26 @@ for (name in pathogens) {
 
 print(pathogens)
 
+
+# Data Details e.g. min, max etc. -----------
+
+# Get summary stats + month with highest detection
+summary_data <- pathogen_meta %>%
+  filter(Year != 2022) %>%  # Exclude 2022 data
+  group_by(Name, Year) %>%
+  summarise(
+    Avg_HPM = mean(HPM, na.rm = TRUE),
+    SD_HPM = sd(HPM, na.rm = TRUE),
+    SE_HPM = SD_HPM / sqrt(n()),
+    Max_HPM = max(HPM, na.rm = TRUE),
+    Max_HPM_Sample = Sample[which.max(HPM)],
+    .groups = "drop"
+  ) %>%
+  mutate(
+    Avg_HPM = round(Avg_HPM, 2),
+    SD_HPM = round(SD_HPM, 2),
+    SE_HPM = round(SE_HPM, 2),
+    Max_HPM = round(Max_HPM, 2)
+  ) %>%
+  arrange(Name, Year)
 
