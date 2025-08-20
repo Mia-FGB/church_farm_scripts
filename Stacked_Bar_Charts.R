@@ -251,7 +251,6 @@ combined_plot
 
 ggsave("../Graphs/Phylum_Combined_2023_2024.pdf", combined_plot, width = 12, height = 10)
 
-
 # Fungi -------------------------------------------------------------------
 
 
