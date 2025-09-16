@@ -70,9 +70,13 @@ strepto_species <- summarise_marti_by_phyla(taxa, sum_data, "Streptophyta", "spe
 pseudo_species  <- summarise_marti_by_phyla(taxa, sum_data, "Pseudomonadota", "species")
 asco_species    <- summarise_marti_by_phyla(taxa, sum_data, "Ascomycota", "species")
 
+
+
 # And for genus  
 strepto_genus <- summarise_marti_by_phyla(taxa, sum_data, "Streptophyta", "genus")
 pseudo_genus  <- summarise_marti_by_phyla(taxa, sum_data, "Pseudomonadota", "genus")
 asco_genus    <- summarise_marti_by_phyla(taxa, sum_data, "Ascomycota", "genus")
 
+# Chordata 
+chord_genus    <- summarise_marti_by_phyla(taxa, sum_data, "Chordata", "genus")
 
