@@ -134,7 +134,8 @@ faceted_plot <- ggplot(plot_data, aes(x = Date, y = Avg_HPM, colour = Name)) +
 faceted_plot
 
 # Save
-ggsave("../Graphs/pathogen_graphs/combined_pathogen_line.pdf", faceted_plot, width = 10, height = 10)
+# ggsave("../Graphs/pathogen_graphs/combined_pathogen_line.pdf", faceted_plot, width = 10, height = 10)
+ggsave("../Graphs/pathogen_graphs/combined_pathogen_line_v2.pdf", faceted_plot, width = 10, height = 10)
 
 
 # Plot per pathogen bar --------
