@@ -52,6 +52,13 @@ read_no <- read.delim("~/Library/CloudStorage/OneDrive-NorwichBioScienceInstitut
 read_no <- read_no  %>%
   rename(Sample_ID = ID)
 
+# Harvest dates (provided over email by Darryl Playford)
+harvest_dates <- data.frame(
+  Year = c(2023, 2024),
+  Harvest = as.Date(c("2023-08-23", "2024-08-11")),
+  label = "Harvest"
+)
+
 # Melting & merging the data ------
 
 # Melt data to long 
@@ -113,6 +120,12 @@ faceted_plot <- ggplot(plot_data, aes(x = Date, y = Avg_HPM, colour = Name)) +
   geom_point(size = 1, colour = "grey30") +
   geom_errorbar(aes(ymin = Avg_HPM - SE_HPM, ymax = Avg_HPM + SE_HPM), 
                 width = 0.3, colour = "grey30") +
+  geom_vline(data = harvest_dates,
+             aes(xintercept = Harvest),
+             linetype = "longdash",
+             colour = "#D55E00",
+             alpha = 0.7,
+             linewidth = 0.5) +
   scale_x_date(date_breaks = "1 month", date_labels = "%b\n%y") +
   facet_grid(rows = vars(Name_lab), cols = vars(Year),
              scales = "free", switch = "y",
@@ -122,6 +135,7 @@ faceted_plot <- ggplot(plot_data, aes(x = Date, y = Avg_HPM, colour = Name)) +
   theme(
     axis.line = element_line(color = "black", linewidth = 0.3),
     panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
     # axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 6),
     legend.position = "none"
   ) +
